@@ -78,9 +78,15 @@ export class HistoryCommand implements Command {
     constructor(private history: string[]) { }
 
     execute(args: string[], stdout: number, stderr: number): void {
-        this.history.forEach((cmd, index) => {
-            fs.writeSync(stdout, `    ${index + 1}  ${cmd}\n`);
-        });
+        // Parse the limit argument if provided
+        const limit = parseInt(args[0], 10);
+        // Calculate the starting index based on the limit
+        const start = isNaN(limit) ? 0 : Math.max(0, this.history.length - limit);
+
+        // Iterate through the history and print each command
+        for (let i = start; i < this.history.length; i++) {
+            fs.writeSync(stdout, `    ${i + 1}  ${this.history[i]}\n`);
+        }
     }
 }
 
