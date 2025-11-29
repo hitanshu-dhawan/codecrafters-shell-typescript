@@ -26,12 +26,12 @@ rl.prompt();
 
 // Handle user input line by line
 rl.on("line", (line) => {
-  const args = parseInput(line);
-  const { cleanArgs, stdout, stderr, stdoutFile, stderrFile, redirectionError } = parseRedirections(args);
+  const inputArgs = parseInput(line);
+  const { args, stdout, stderr, stdoutFile, stderrFile, redirectionError } = parseRedirections(inputArgs);
 
   if (!redirectionError) {
-    const commandName = cleanArgs[0];
-    const commandArgs = cleanArgs.slice(1);
+    const commandName = args[0];
+    const commandArgs = args.slice(1);
 
     if (commandsRegistry.has(commandName)) {
       // Execute built-in command

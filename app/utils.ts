@@ -117,12 +117,24 @@ export function parseInput(input: string): string[] {
 }
 
 /**
+ * Interface representing the result of parsing command redirections.
+ */
+export interface RedirectionResult {
+    args: string[];
+    stdout: number;
+    stderr: number;
+    stdoutFile: number | null;
+    stderrFile: number | null;
+    redirectionError: boolean;
+}
+
+/**
  * Parses arguments to handle output and error redirection.
  * 
  * @param args - The arguments to parse.
  * @returns An object containing cleaned arguments, file descriptors, and any error status.
  */
-export function parseRedirections(args: string[]) {
+export function parseRedirections(args: string[]): RedirectionResult {
 
     let stdout: number = process.stdout.fd;
     let stderr: number = process.stderr.fd;
@@ -131,7 +143,7 @@ export function parseRedirections(args: string[]) {
 
     let redirectionError = false;
 
-    const cleanArgs: string[] = [];
+    const filteredArgs: string[] = [];
 
     for (let i = 0; i < args.length; i++) {
 
@@ -165,9 +177,9 @@ export function parseRedirections(args: string[]) {
                 i++;
             }
         } else {
-            cleanArgs.push(arg);
+            filteredArgs.push(arg);
         }
     }
 
-    return { cleanArgs, stdout, stderr, stdoutFile, stderrFile, redirectionError };
+    return { args: filteredArgs, stdout, stderr, stdoutFile, stderrFile, redirectionError };
 }
