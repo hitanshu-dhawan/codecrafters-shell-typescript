@@ -81,6 +81,15 @@ rl.on("line", (line) => {
 
 // Handle shell exit
 rl.on("close", () => {
+
+  // Save history to HISTFILE if it exists
+  if (historyFilePath) {
+    if (history.length > 0) {
+      let content = history.join("\n") + "\n";
+      fs.appendFileSync(historyFilePath, content);
+    }
+  }
+
   process.exit(0);
 });
 
