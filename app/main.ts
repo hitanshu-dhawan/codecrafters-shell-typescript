@@ -7,6 +7,10 @@ const rl = createInterface({
 
 const prompt = () => {
   rl.question("$ ", (command) => {
+    if (command === "exit") {
+      rl.close();
+      return;
+    }
     console.log(`${command}: command not found`);
     prompt();
   });
