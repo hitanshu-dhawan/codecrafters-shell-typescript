@@ -75,9 +75,28 @@ export class CdCommand implements Command {
 export class HistoryCommand implements Command {
     command = "history";
 
+    // Index to track the last appended command for -a option
+    private lastAppendedIndex = 0;
+
     constructor(private history: string[]) { }
 
     execute(args: string[], stdout: number, stderr: number): void {
+
+        // Handle options for reading, writing, or appending history
+        if (args.length >= 2) {
+            switch (args[0]) {
+                case "-r":
+                    this.handleRead(args[1]);
+                    return;
+                case "-w":
+                    this.handleWrite(args[1]);
+                    return;
+                case "-a":
+                    this.handleAppend(args[1]);
+                    return;
+            }
+        }
+
         // Parse the limit argument if provided
         const limit = parseInt(args[0], 10);
         // Calculate the starting index based on the limit
@@ -88,6 +107,34 @@ export class HistoryCommand implements Command {
             fs.writeSync(stdout, `    ${i + 1}  ${this.history[i]}\n`);
         }
     }
+
+    private handleRead(filePath: string): void {
+        if (fs.existsSync(filePath)) {
+            const content = fs.readFileSync(filePath, "utf-8");
+            const lines = content.split("\n");
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (trimmed) {
+                    this.history.push(trimmed);
+                }
+            }
+        }
+    }
+
+    private handleWrite(filePath: string): void {
+        const content = this.history.join("\n") + "\n";
+        fs.writeFileSync(filePath, content);
+    }
+
+    private handleAppend(filePath: string): void {
+        const historyToAppend = this.history.slice(this.lastAppendedIndex);
+        if (historyToAppend.length > 0) {
+            const content = historyToAppend.join("\n") + "\n";
+            fs.appendFileSync(filePath, content);
+            this.lastAppendedIndex = this.history.length;
+        }
+    }
+
 }
 
 /**
