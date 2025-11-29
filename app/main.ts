@@ -8,6 +8,16 @@ import { parseInput, findExecutable, parseRedirections } from "./utils";
 const rl = createInterface({
   input: process.stdin,
   output: process.stdout,
+  completer: (line: string) => {
+    const completions = Array.from(commandsRegistry.keys());
+    const hits = completions.filter((c) => c.startsWith(line));
+
+    if (hits.length === 1) {
+      return [[hits[0] + " "], line];
+    }
+
+    return [hits, line];
+  },
 });
 
 // Register built-in commands
