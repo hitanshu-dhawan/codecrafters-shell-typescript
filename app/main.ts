@@ -1,6 +1,6 @@
 import { createInterface } from "readline";
 import { spawnSync } from "child_process";
-import { commandsRegistry, EchoCommand, PwdCommand, ExitCommand, TypeCommand } from "./commands";
+import { commandsRegistry, EchoCommand, PwdCommand, CdCommand, ExitCommand, TypeCommand } from "./commands";
 import { findExecutable } from "./utils";
 
 // Create a readline interface to read from stdin and write to stdout
@@ -13,6 +13,7 @@ const rl = createInterface({
 const commandsToRegister = [
   new EchoCommand(),
   new PwdCommand(),
+  new CdCommand(),
   new ExitCommand(rl),
   new TypeCommand(),
 ];

@@ -37,6 +37,27 @@ export class PwdCommand implements Command {
 }
 
 /**
+ * Command to change the current working directory.
+ */
+export class CdCommand implements Command {
+    command = "cd";
+
+    execute(args: string[]): void {
+        let path = args[0];
+
+        if (path === "~") {
+            path = process.env.HOME || "";
+        }
+
+        try {
+            process.chdir(path);
+        } catch (error) {
+            console.log(`cd: ${path}: No such file or directory`);
+        }
+    }
+}
+
+/**
  * Command to exit the shell.
  */
 export class ExitCommand implements Command {
