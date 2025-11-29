@@ -1,6 +1,7 @@
 import { createInterface } from "readline";
 import * as fs from "fs";
 import * as path from "path";
+import { spawnSync } from "child_process";
 
 const rl = createInterface({
   input: process.stdin,
@@ -50,7 +51,28 @@ rl.on("line", (line) => {
       }
       break;
     default:
-      console.log(`${command}: command not found`);
+      const envPath = process.env.PATH || "";
+      const paths = envPath.split(path.delimiter);
+      let foundPath = null;
+
+      for (const dir of paths) {
+        const fullPath = path.join(dir, command);
+        if (fs.existsSync(fullPath)) {
+          try {
+            fs.accessSync(fullPath, fs.constants.X_OK);
+            if (fs.statSync(fullPath).isFile()) {
+              foundPath = fullPath;
+              break;
+            }
+          } catch (e) { }
+        }
+      }
+
+      if (foundPath) {
+        spawnSync(foundPath, args, { argv0: command, stdio: "inherit" });
+      } else {
+        console.log(`${command}: command not found`);
+      }
       break;
   }
 
