@@ -18,6 +18,9 @@ const rl = createInterface({
 // Store command history
 const history: string[] = [];
 
+// Track number of commands loaded from history file
+let historyLoadedCount = 0;
+
 // Load existing history from HISTFILE if it exists
 const historyFilePath = process.env.HISTFILE;
 if (historyFilePath && fs.existsSync(historyFilePath)) {
@@ -27,6 +30,7 @@ if (historyFilePath && fs.existsSync(historyFilePath)) {
       history.push(line.trim());
     }
   });
+  historyLoadedCount = history.length;
 }
 
 // Register built-in commands
@@ -84,8 +88,9 @@ rl.on("close", () => {
 
   // Save history to HISTFILE if it exists
   if (historyFilePath) {
-    if (history.length > 0) {
-      let content = history.join("\n") + "\n";
+    const newCommands = history.slice(historyLoadedCount);
+    if (newCommands.length > 0) {
+      let content = newCommands.join("\n") + "\n";
       fs.appendFileSync(historyFilePath, content);
     }
   }
