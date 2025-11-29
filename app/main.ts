@@ -1,7 +1,7 @@
 import { createInterface } from "readline";
 import { spawnSync } from "child_process";
 import { commandsRegistry, EchoCommand, PwdCommand, CdCommand, ExitCommand, TypeCommand } from "./commands";
-import { findExecutable } from "./utils";
+import { parseInput, findExecutable } from "./utils";
 
 // Create a readline interface to read from stdin and write to stdout
 const rl = createInterface({
@@ -25,16 +25,19 @@ rl.prompt();
 
 // Handle user input line by line
 rl.on("line", (line) => {
-  const [commandName, ...args] = line.trim().split(/\s+/);
+  const args = parseInput(line);
+
+  const commandName = args[0];
+  const commandArgs = args.slice(1);
 
   if (commandsRegistry.has(commandName)) {
     // Execute built-in command
-    commandsRegistry.get(commandName)!.execute(args);
+    commandsRegistry.get(commandName)!.execute(commandArgs);
   } else {
     // Search for executable in PATH
     const executablePath = findExecutable(commandName);
     if (executablePath) {
-      spawnSync(executablePath, args, { argv0: commandName, stdio: "inherit" });
+      spawnSync(executablePath, commandArgs, { argv0: commandName, stdio: "inherit" });
     } else {
       console.log(`${commandName}: command not found`);
     }

@@ -24,3 +24,87 @@ export function findExecutable(command: string): string | null {
     }
     return null;
 }
+
+/**
+ * Parses an input string into an array of tokens.
+ * 
+ * Handles quoting and escaping rules:
+ * 
+ * Single Quotes ('):
+ * - Disable all special meaning for characters enclosed within them.
+ * - Example: 'hello    world' -> hello    world
+ * - Example: 'hello''world' -> helloworld
+ * 
+ * Double Quotes ("):
+ * - Most characters are treated literally.
+ * - Backslash (\) escapes " and \.
+ * - Example: "hello    world" -> hello    world
+ * - Example: "hello""world" -> helloworld
+ * - Example: "shell's test" -> shell's test
+ * - Example: "A \" inside double quotes" -> A " inside double quotes
+ * 
+ * Backslash (\) outside quotes:
+ * - Escapes the next character.
+ * - Example: world\ \ \ \ \ \ script -> world      script
+ * 
+ * @param input - The input string to parse.
+ * @returns An array of tokens.
+ */
+export function parseInput(input: string): string[] {
+    const tokens: string[] = [];
+
+    let currentToken = "";
+    let inSingleQuote = false;
+    let inDoubleQuote = false;
+
+    for (let i = 0; i < input.length; i++) {
+        const char = input[i];
+
+        if (inSingleQuote) {
+            if (char === "'") {
+                inSingleQuote = false;
+            } else {
+                currentToken += char;
+            }
+        } else if (inDoubleQuote) {
+            if (char === '"') {
+                inDoubleQuote = false;
+            } else if (char === '\\') {
+                const nextChar = input[i + 1];
+                if (nextChar === '"' || nextChar === '\\') {
+                    currentToken += nextChar;
+                    i++;
+                } else {
+                    currentToken += char;
+                }
+            } else {
+                currentToken += char;
+            }
+        } else {
+            if (char === '\\') {
+                const nextChar = input[i + 1];
+                if (nextChar !== undefined) {
+                    currentToken += nextChar;
+                    i++;
+                }
+            } else if (char === "'") {
+                inSingleQuote = true;
+            } else if (char === '"') {
+                inDoubleQuote = true;
+            } else if (char === ' ' || char === '\t') {
+                if (currentToken.length > 0) {
+                    tokens.push(currentToken);
+                    currentToken = "";
+                }
+            } else {
+                currentToken += char;
+            }
+        }
+    }
+
+    if (currentToken.length > 0) {
+        tokens.push(currentToken);
+    }
+
+    return tokens;
+}
