@@ -2,15 +2,27 @@ import { createInterface } from "readline";
 import { spawnSync } from "child_process";
 import * as fs from "fs";
 import { commandsRegistry, EchoCommand, PwdCommand, CdCommand, ExitCommand, TypeCommand } from "./commands";
-import { parseInput, findExecutable, parseRedirections } from "./utils";
+import { parseInput, parseRedirections, findExecutable, getMatchingExecutables } from "./utils";
 
 // Create a readline interface to read from stdin and write to stdout
 const rl = createInterface({
   input: process.stdin,
   output: process.stdout,
   completer: (line: string) => {
-    const completions = Array.from(commandsRegistry.keys());
-    const hits = completions.filter((c) => c.startsWith(line));
+    const completions = new Set<string>();
+
+    // Add matching builtins
+    for (const cmd of commandsRegistry.keys()) {
+      if (cmd.startsWith(line)) {
+        completions.add(cmd);
+      }
+    }
+
+    // Add matching external commands
+    const externalMatches = getMatchingExecutables(line);
+    externalMatches.forEach((cmd) => completions.add(cmd));
+
+    const hits = Array.from(completions).sort();
 
     // If no completions found, ring the bell
     if (hits.length === 0) {

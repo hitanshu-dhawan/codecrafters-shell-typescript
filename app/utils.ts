@@ -22,7 +22,40 @@ export function findExecutable(command: string): string | null {
             } catch (e) { }
         }
     }
+
     return null;
+}
+
+/**
+ * Searches for executable files in the PATH that start with the given prefix.
+ * 
+ * @param prefix - The prefix to match.
+ * @returns An array of matching executable names.
+ */
+export function getMatchingExecutables(prefix: string): string[] {
+    const completions = new Set<string>();
+
+    const envPath = process.env.PATH || "";
+    const paths = envPath.split(path.delimiter);
+
+    for (const dir of paths) {
+        try {
+            const files = fs.readdirSync(dir);
+            for (const file of files) {
+                if (file.startsWith(prefix)) {
+                    const fullPath = path.join(dir, file);
+                    try {
+                        if (fs.statSync(fullPath).isFile()) {
+                            fs.accessSync(fullPath, fs.constants.X_OK);
+                            completions.add(file);
+                        }
+                    } catch (e) { }
+                }
+            }
+        } catch (e) { }
+    }
+
+    return Array.from(completions);
 }
 
 /**
