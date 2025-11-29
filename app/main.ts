@@ -18,6 +18,13 @@ rl.on("line", (line) => {
     case "echo":
       console.log(args.join(" "));
       break;
+    case "type":
+      if (["echo", "exit", "type"].includes(args[0])) {
+        console.log(`${args[0]} is a shell builtin`);
+      } else {
+        console.log(`${args[0]}: not found`);
+      }
+      break;
     default:
       console.log(`${command}: command not found`);
       break;
