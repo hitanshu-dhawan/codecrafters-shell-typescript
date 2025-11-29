@@ -12,6 +12,13 @@ const rl = createInterface({
     const completions = Array.from(commandsRegistry.keys());
     const hits = completions.filter((c) => c.startsWith(line));
 
+    // If no completions found, ring the bell
+    if (hits.length === 0) {
+      process.stdout.write('\x07');
+      return [[], line];
+    }
+
+    // If exactly one completion found, append a space
     if (hits.length === 1) {
       return [[hits[0] + " "], line];
     }
