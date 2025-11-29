@@ -1,87 +1,48 @@
 import { createInterface } from "readline";
-import * as fs from "fs";
-import * as path from "path";
 import { spawnSync } from "child_process";
+import { commandsRegistry, EchoCommand, PwdCommand, ExitCommand, TypeCommand } from "./commands";
+import { findExecutable } from "./utils";
 
+// Create a readline interface to read from stdin and write to stdout
 const rl = createInterface({
   input: process.stdin,
   output: process.stdout,
 });
 
+// Register built-in commands
+const commandsToRegister = [
+  new EchoCommand(),
+  new PwdCommand(),
+  new ExitCommand(rl),
+  new TypeCommand(),
+];
+commandsToRegister.forEach((command) => commandsRegistry.set(command.command, command));
+
+// Set the shell prompt
 rl.setPrompt("$ ");
 rl.prompt();
 
+// Handle user input line by line
 rl.on("line", (line) => {
-  const [command, ...args] = line.trim().split(/\s+/);
+  const [commandName, ...args] = line.trim().split(/\s+/);
 
-  switch (command) {
-    case "exit":
-      rl.close();
-      break;
-    case "echo":
-      console.log(args.join(" "));
-      break;
-    case "pwd":
-      console.log(process.cwd());
-      break;
-    case "type":
-      const cmd = args[0];
-      if (["echo", "exit", "type", "pwd"].includes(cmd)) {
-        console.log(`${cmd} is a shell builtin`);
-      } else {
-        const envPath = process.env.PATH || "";
-        const paths = envPath.split(path.delimiter);
-        let foundPath = null;
-
-        for (const dir of paths) {
-          const fullPath = path.join(dir, cmd);
-          if (fs.existsSync(fullPath)) {
-            try {
-              fs.accessSync(fullPath, fs.constants.X_OK);
-              if (fs.statSync(fullPath).isFile()) {
-                foundPath = fullPath;
-                break;
-              }
-            } catch (e) { }
-          }
-        }
-
-        if (foundPath) {
-          console.log(`${cmd} is ${foundPath}`);
-        } else {
-          console.log(`${cmd}: not found`);
-        }
-      }
-      break;
-    default:
-      const envPath = process.env.PATH || "";
-      const paths = envPath.split(path.delimiter);
-      let foundPath = null;
-
-      for (const dir of paths) {
-        const fullPath = path.join(dir, command);
-        if (fs.existsSync(fullPath)) {
-          try {
-            fs.accessSync(fullPath, fs.constants.X_OK);
-            if (fs.statSync(fullPath).isFile()) {
-              foundPath = fullPath;
-              break;
-            }
-          } catch (e) { }
-        }
-      }
-
-      if (foundPath) {
-        spawnSync(foundPath, args, { argv0: command, stdio: "inherit" });
-      } else {
-        console.log(`${command}: command not found`);
-      }
-      break;
+  if (commandsRegistry.has(commandName)) {
+    // Execute built-in command
+    commandsRegistry.get(commandName)!.execute(args);
+  } else {
+    // Search for executable in PATH
+    const executablePath = findExecutable(commandName);
+    if (executablePath) {
+      spawnSync(executablePath, args, { argv0: commandName, stdio: "inherit" });
+    } else {
+      console.log(`${commandName}: command not found`);
+    }
   }
 
   rl.prompt();
 });
 
+// Handle shell exit
 rl.on("close", () => {
   process.exit(0);
 });
