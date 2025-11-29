@@ -18,6 +18,17 @@ const rl = createInterface({
 // Store command history
 const history: string[] = [];
 
+// Load existing history from HISTFILE if it exists
+const historyFilePath = process.env.HISTFILE;
+if (historyFilePath && fs.existsSync(historyFilePath)) {
+  const content = fs.readFileSync(historyFilePath, "utf-8");
+  content.split("\n").forEach((line) => {
+    if (line.trim()) {
+      history.push(line.trim());
+    }
+  });
+}
+
 // Register built-in commands
 const commandsToRegister = [
   new EchoCommand(),
