@@ -8,63 +8,11 @@ import { parseInput, parseRedirections, findExecutable, getMatchingExecutables, 
 // Shell prompt prefix
 const PROMPT_PREFIX = "$ ";
 
-// Counter to track consecutive tab presses for autocompletion
-let tabCounter = 0;
-
 // Create a readline interface to read from stdin and write to stdout
 const rl = createInterface({
   input: process.stdin,
   output: process.stdout,
-  completer: (line: string) => {
-    const completions = new Set<string>();
-
-    // Add matching builtins
-    for (const cmd of commandsRegistry.keys()) {
-      if (cmd.startsWith(line)) {
-        completions.add(cmd);
-      }
-    }
-
-    // Add matching external commands
-    const externalMatches = getMatchingExecutables(line);
-    externalMatches.forEach((cmd) => completions.add(cmd));
-
-    const hits = Array.from(completions).sort();
-
-    // If no completions found, ring the bell
-    if (hits.length === 0) {
-      process.stdout.write('\x07');
-      return [[], line];
-    }
-
-    // If exactly one completion found, append a space
-    if (hits.length === 1) {
-      return [[hits[0] + " "], line];
-    }
-
-    // If multiple completions found, find the longest common prefix
-    const prefix = longestCommonPrefix(hits);
-    if (prefix.length > line.length) {
-      return [[prefix], line];
-    }
-
-    // Handle multiple completions with tab counting
-    if (tabCounter === 0) {
-      tabCounter++;
-
-      // Ring the bell to indicate multiple options
-      process.stdout.write('\x07');
-      return [[], line];
-
-    } else if (tabCounter >= 1) {
-      tabCounter = 0;
-
-      // Display all possible completions
-      process.stdout.write(`\n${hits.join("  ")}\n${PROMPT_PREFIX}${line}`);
-    }
-
-    return [[], line];
-  },
+  completer: handleCompletion,
 });
 
 // Register built-in commands
@@ -114,3 +62,73 @@ rl.on("line", (line) => {
 rl.on("close", () => {
   process.exit(0);
 });
+
+
+// Counter to track consecutive tab presses for autocompletion
+let tabCounter = 0;
+
+/**
+ * Handles tab completion for the shell.
+ * 
+ * This function checks for matching built-in commands and external executables.
+ * It handles different scenarios:
+ * - No matches: Rings the bell.
+ * - Single match: Returns the match with a trailing space.
+ * - Multiple matches:
+ *   - If there is a common prefix longer than the current line, returns it.
+ *   - If it's the first tab press, rings the bell.
+ *   - If it's the second tab press (consecutive), displays all possible completions.
+ * 
+ * @param line The current input line to complete.
+ * @returns A tuple containing an array of completions and the original line.
+ */
+function handleCompletion(line: string): [string[], string] {
+  const completions = new Set<string>();
+
+  // Add matching builtins
+  for (const cmd of commandsRegistry.keys()) {
+    if (cmd.startsWith(line)) {
+      completions.add(cmd);
+    }
+  }
+
+  // Add matching external commands
+  const externalMatches = getMatchingExecutables(line);
+  externalMatches.forEach((cmd) => completions.add(cmd));
+
+  const hits = Array.from(completions).sort();
+
+  // If no completions found, ring the bell
+  if (hits.length === 0) {
+    process.stdout.write('\x07');
+    return [[], line];
+  }
+
+  // If exactly one completion found, append a space
+  if (hits.length === 1) {
+    return [[hits[0] + " "], line];
+  }
+
+  // If multiple completions found, find the longest common prefix
+  const prefix = longestCommonPrefix(hits);
+  if (prefix.length > line.length) {
+    return [[prefix], line];
+  }
+
+  // Handle multiple completions with tab counting
+  if (tabCounter === 0) {
+    tabCounter++;
+
+    // Ring the bell to indicate multiple options
+    process.stdout.write('\x07');
+    return [[], line];
+
+  } else if (tabCounter >= 1) {
+    tabCounter = 0;
+
+    // Display all possible completions
+    process.stdout.write(`\n${hits.join("  ")}\n${PROMPT_PREFIX}${line}`);
+  }
+
+  return [[], line];
+}
