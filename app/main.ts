@@ -21,9 +21,12 @@ rl.on("line", (line) => {
     case "echo":
       console.log(args.join(" "));
       break;
+    case "pwd":
+      console.log(process.cwd());
+      break;
     case "type":
       const cmd = args[0];
-      if (["echo", "exit", "type"].includes(cmd)) {
+      if (["echo", "exit", "type", "pwd"].includes(cmd)) {
         console.log(`${cmd} is a shell builtin`);
       } else {
         const envPath = process.env.PATH || "";
