@@ -115,3 +115,91 @@ export function parseInput(input: string): string[] {
 
     return tokens;
 }
+
+/**
+ * Parses arguments to handle output and error redirection.
+ * 
+ * @param args - The arguments to parse.
+ * @returns An object containing cleaned arguments, file descriptors, and any error status.
+ */
+export function parseRedirections(args: string[]) {
+
+    let stdout: number = process.stdout.fd;
+    let stderr: number = process.stderr.fd;
+    let stdoutFile: number | null = null;
+    let stderrFile: number | null = null;
+
+    let redirectionError = false;
+
+    const cleanArgs: string[] = [];
+
+    for (let i = 0; i < args.length; i++) {
+
+        if (redirectionError)
+            break;
+
+        const arg = args[i];
+
+        if (arg === "1>" || arg === ">") {
+            if (i + 1 < args.length) {
+                const filePath = args[i + 1];
+                try {
+                    if (stdoutFile)
+                        fs.closeSync(stdoutFile);
+                    stdoutFile = fs.openSync(filePath, "w");
+                    stdout = stdoutFile;
+                } catch (e) {
+                    console.log(`${filePath}: No such file or directory`);
+                    redirectionError = true;
+                }
+                i++;
+            }
+        } else if (arg === "2>") {
+            if (i + 1 < args.length) {
+                const filePath = args[i + 1];
+                try {
+                    if (stderrFile)
+                        fs.closeSync(stderrFile);
+                    stderrFile = fs.openSync(filePath, "w");
+                    stderr = stderrFile;
+                } catch (e) {
+                    console.log(`${filePath}: No such file or directory`);
+                    redirectionError = true;
+                }
+                i++;
+            }
+        } else if (arg === "1>>" || arg === ">>") {
+            if (i + 1 < args.length) {
+                const filePath = args[i + 1];
+                try {
+                    if (stdoutFile)
+                        fs.closeSync(stdoutFile);
+                    stdoutFile = fs.openSync(filePath, "a");
+                    stdout = stdoutFile;
+                } catch (e) {
+                    console.log(`${filePath}: No such file or directory`);
+                    redirectionError = true;
+                }
+                i++;
+            }
+        } else if (arg === "2>>") {
+            if (i + 1 < args.length) {
+                const filePath = args[i + 1];
+                try {
+                    if (stderrFile)
+                        fs.closeSync(stderrFile);
+                    stderrFile = fs.openSync(filePath, "a");
+                    stderr = stderrFile;
+                } catch (e) {
+                    console.log(`${filePath}: No such file or directory`);
+                    redirectionError = true;
+                }
+                i++;
+            }
+        } else {
+            cleanArgs.push(arg);
+        }
+    }
+
+    return { cleanArgs, stdout, stderr, stdoutFile, stderrFile, redirectionError };
+}

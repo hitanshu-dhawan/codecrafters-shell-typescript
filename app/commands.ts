@@ -1,3 +1,4 @@
+import * as fs from "fs";
 import { Interface } from "readline";
 import { findExecutable } from "./utils";
 
@@ -5,8 +6,18 @@ import { findExecutable } from "./utils";
  * Interface representing a shell command.
  */
 export interface Command {
+
+    /** The name of the command */
     command: string;
-    execute(args: string[]): void;
+
+    /** Executes the command with the given arguments and I/O streams.
+     * 
+     * @param args - The arguments passed to the command.
+     * @param stdout - The file descriptor for standard output.
+     * @param stderr - The file descriptor for standard error.
+     */
+    execute(args: string[], stdout: number, stderr: number): void;
+
 }
 
 /**
@@ -20,8 +31,8 @@ export const commandsRegistry = new Map<string, Command>();
 export class EchoCommand implements Command {
     command = "echo";
 
-    execute(args: string[]): void {
-        console.log(args.join(" "));
+    execute(args: string[], stdout: number, stderr: number): void {
+        fs.writeSync(stdout, args.join(" ") + "\n");
     }
 }
 
@@ -31,8 +42,8 @@ export class EchoCommand implements Command {
 export class PwdCommand implements Command {
     command = "pwd";
 
-    execute(args: string[]): void {
-        console.log(process.cwd());
+    execute(args: string[], stdout: number, stderr: number): void {
+        fs.writeSync(stdout, process.cwd() + "\n");
     }
 }
 
@@ -42,7 +53,7 @@ export class PwdCommand implements Command {
 export class CdCommand implements Command {
     command = "cd";
 
-    execute(args: string[]): void {
+    execute(args: string[], stdout: number, stderr: number): void {
         let path = args[0];
 
         if (path === "~") {
@@ -52,7 +63,7 @@ export class CdCommand implements Command {
         try {
             process.chdir(path);
         } catch (error) {
-            console.log(`cd: ${path}: No such file or directory`);
+            fs.writeSync(stdout, `cd: ${path}: No such file or directory\n`);
         }
     }
 }
@@ -65,7 +76,7 @@ export class ExitCommand implements Command {
 
     constructor(private rl: Interface) { }
 
-    execute(args: string[]): void {
+    execute(args: string[], stdout: number, stderr: number): void {
         this.rl.close();
     }
 }
@@ -76,16 +87,16 @@ export class ExitCommand implements Command {
 export class TypeCommand implements Command {
     command = "type";
 
-    execute(args: string[]): void {
+    execute(args: string[], stdout: number, stderr: number): void {
         const cmd = args[0];
         if (commandsRegistry.has(cmd)) {
-            console.log(`${cmd} is a shell builtin`);
+            fs.writeSync(stdout, `${cmd} is a shell builtin\n`);
         } else {
             const path = findExecutable(cmd);
             if (path) {
-                console.log(`${cmd} is ${path}`);
+                fs.writeSync(stdout, `${cmd} is ${path}\n`);
             } else {
-                console.log(`${cmd}: not found`);
+                fs.writeSync(stdout, `${cmd}: not found\n`);
             }
         }
     }
