@@ -70,6 +70,21 @@ export class CdCommand implements Command {
 }
 
 /**
+ * Command to display the command history.
+ */
+export class HistoryCommand implements Command {
+    command = "history";
+
+    constructor(private history: string[]) { }
+
+    execute(args: string[], stdout: number, stderr: number): void {
+        this.history.forEach((cmd, index) => {
+            fs.writeSync(stdout, `    ${index + 1}  ${cmd}\n`);
+        });
+    }
+}
+
+/**
  * Command to exit the shell.
  */
 export class ExitCommand implements Command {

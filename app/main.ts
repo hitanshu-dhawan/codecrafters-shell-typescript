@@ -2,7 +2,7 @@ import { createInterface } from "readline";
 import { spawnSync } from "child_process";
 import * as fs from "fs";
 
-import { commandsRegistry, EchoCommand, PwdCommand, CdCommand, ExitCommand, TypeCommand } from "./commands";
+import { commandsRegistry, EchoCommand, PwdCommand, CdCommand, HistoryCommand, ExitCommand, TypeCommand } from "./commands";
 import { parseInput, parseRedirections, findExecutable, getMatchingExecutables, longestCommonPrefix } from "./utils";
 
 // Shell prompt prefix
@@ -15,11 +15,15 @@ const rl = createInterface({
   completer: handleCompletion,
 });
 
+// Store command history
+const history: string[] = [];
+
 // Register built-in commands
 const commandsToRegister = [
   new EchoCommand(),
   new PwdCommand(),
   new CdCommand(),
+  new HistoryCommand(history),
   new ExitCommand(rl),
   new TypeCommand(),
 ];
@@ -31,6 +35,12 @@ rl.prompt();
 
 // Handle user input line by line
 rl.on("line", (line) => {
+
+  // Add command to history if not empty
+  if (line.trim()) {
+    history.push(line.trim());
+  }
+
   const inputArgs = parseInput(line);
   const { args, stdout, stderr, stdoutFile, stderrFile, redirectionError } = parseRedirections(inputArgs);
 
