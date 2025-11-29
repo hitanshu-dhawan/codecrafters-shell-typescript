@@ -1,4 +1,6 @@
 import { createInterface } from "readline";
+import * as fs from "fs";
+import * as path from "path";
 
 const rl = createInterface({
   input: process.stdin,
@@ -19,10 +21,32 @@ rl.on("line", (line) => {
       console.log(args.join(" "));
       break;
     case "type":
-      if (["echo", "exit", "type"].includes(args[0])) {
-        console.log(`${args[0]} is a shell builtin`);
+      const cmd = args[0];
+      if (["echo", "exit", "type"].includes(cmd)) {
+        console.log(`${cmd} is a shell builtin`);
       } else {
-        console.log(`${args[0]}: not found`);
+        const envPath = process.env.PATH || "";
+        const paths = envPath.split(path.delimiter);
+        let foundPath = null;
+
+        for (const dir of paths) {
+          const fullPath = path.join(dir, cmd);
+          if (fs.existsSync(fullPath)) {
+            try {
+              fs.accessSync(fullPath, fs.constants.X_OK);
+              if (fs.statSync(fullPath).isFile()) {
+                foundPath = fullPath;
+                break;
+              }
+            } catch (e) { }
+          }
+        }
+
+        if (foundPath) {
+          console.log(`${cmd} is ${foundPath}`);
+        } else {
+          console.log(`${cmd}: not found`);
+        }
       }
       break;
     default:
