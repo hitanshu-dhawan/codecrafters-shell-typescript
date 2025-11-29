@@ -216,3 +216,24 @@ export function parseRedirections(args: string[]): RedirectionResult {
 
     return { args: filteredArgs, stdout, stderr, stdoutFile, stderrFile, redirectionError };
 }
+
+/**
+ * Finds the longest common prefix among an array of strings.
+ * 
+ * @param strings - The array of strings.
+ * @returns The longest common prefix.
+ */
+export function longestCommonPrefix(strings: string[]): string {
+    if (strings.length === 0) return "";
+
+    let prefix = strings[0];
+    for (let i = 1; i < strings.length; i++) {
+        while (strings[i].indexOf(prefix) !== 0) {
+            prefix = prefix.substring(0, prefix.length - 1);
+            if (prefix === "")
+                return "";
+        }
+    }
+
+    return prefix;
+}

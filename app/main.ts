@@ -3,7 +3,7 @@ import { spawnSync } from "child_process";
 import * as fs from "fs";
 
 import { commandsRegistry, EchoCommand, PwdCommand, CdCommand, ExitCommand, TypeCommand } from "./commands";
-import { parseInput, parseRedirections, findExecutable, getMatchingExecutables } from "./utils";
+import { parseInput, parseRedirections, findExecutable, getMatchingExecutables, longestCommonPrefix } from "./utils";
 
 // Shell prompt prefix
 const PROMPT_PREFIX = "$ ";
@@ -40,6 +40,12 @@ const rl = createInterface({
     // If exactly one completion found, append a space
     if (hits.length === 1) {
       return [[hits[0] + " "], line];
+    }
+
+    // If multiple completions found, find the longest common prefix
+    const prefix = longestCommonPrefix(hits);
+    if (prefix.length > line.length) {
+      return [[prefix], line];
     }
 
     // Handle multiple completions with tab counting
