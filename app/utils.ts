@@ -61,16 +61,19 @@ export function parseInput(input: string): string[] {
         const char = input[i];
 
         if (inSingleQuote) {
+            // Handle single quotes: preserve everything literally until closing quote
             if (char === "'") {
                 inSingleQuote = false;
             } else {
                 currentToken += char;
             }
         } else if (inDoubleQuote) {
+            // Handle double quotes: preserve whitespace, handle specific escapes
             if (char === '"') {
                 inDoubleQuote = false;
             } else if (char === '\\') {
                 const nextChar = input[i + 1];
+                // Only escape " and \ inside double quotes
                 if (nextChar === '"' || nextChar === '\\') {
                     currentToken += nextChar;
                     i++;
@@ -81,7 +84,9 @@ export function parseInput(input: string): string[] {
                 currentToken += char;
             }
         } else {
+            // Handle unquoted characters
             if (char === '\\') {
+                // Backslash escapes the next character
                 const nextChar = input[i + 1];
                 if (nextChar !== undefined) {
                     currentToken += nextChar;
@@ -92,6 +97,7 @@ export function parseInput(input: string): string[] {
             } else if (char === '"') {
                 inDoubleQuote = true;
             } else if (char === ' ' || char === '\t') {
+                // Whitespace acts as a delimiter
                 if (currentToken.length > 0) {
                     tokens.push(currentToken);
                     currentToken = "";
@@ -102,6 +108,7 @@ export function parseInput(input: string): string[] {
         }
     }
 
+    // Add the last token if exists
     if (currentToken.length > 0) {
         tokens.push(currentToken);
     }
