@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import { Interface } from "readline";
+
 import { findExecutable } from "./utils";
 
 /**

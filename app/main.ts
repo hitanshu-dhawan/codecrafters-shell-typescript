@@ -1,8 +1,15 @@
 import { createInterface } from "readline";
 import { spawnSync } from "child_process";
 import * as fs from "fs";
+
 import { commandsRegistry, EchoCommand, PwdCommand, CdCommand, ExitCommand, TypeCommand } from "./commands";
 import { parseInput, parseRedirections, findExecutable, getMatchingExecutables } from "./utils";
+
+// Shell prompt prefix
+const PROMPT_PREFIX = "$ ";
+
+// Counter to track consecutive tab presses for autocompletion
+let tabCounter = 0;
 
 // Create a readline interface to read from stdin and write to stdout
 const rl = createInterface({
@@ -35,7 +42,22 @@ const rl = createInterface({
       return [[hits[0] + " "], line];
     }
 
-    return [hits, line];
+    // Handle multiple completions with tab counting
+    if (tabCounter === 0) {
+      tabCounter++;
+
+      // Ring the bell to indicate multiple options
+      process.stdout.write('\x07');
+      return [[], line];
+
+    } else if (tabCounter >= 1) {
+      tabCounter = 0;
+
+      // Display all possible completions
+      process.stdout.write(`\n${hits.join("  ")}\n${PROMPT_PREFIX}${line}`);
+    }
+
+    return [[], line];
   },
 });
 
@@ -50,7 +72,7 @@ const commandsToRegister = [
 commandsToRegister.forEach((command) => commandsRegistry.set(command.command, command));
 
 // Set the shell prompt
-rl.setPrompt("$ ");
+rl.setPrompt(PROMPT_PREFIX);
 rl.prompt();
 
 // Handle user input line by line
