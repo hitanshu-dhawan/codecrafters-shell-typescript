@@ -1,6 +1,7 @@
 import { createInterface } from "readline";
 import { spawnSync } from "child_process";
 import * as fs from "fs";
+import * as path from "path";
 
 import { commandsRegistry, EchoCommand, PwdCommand, CdCommand, HistoryCommand, ExitCommand, TypeCommand } from "./commands";
 import { parseInput, parseRedirections, findExecutable, getMatchingExecutables, longestCommonPrefix } from "./utils";
@@ -105,19 +106,38 @@ let tabCounter = 0;
 /**
  * Handles tab completion for the shell.
  * 
- * This function checks for matching built-in commands and external executables.
- * It handles different scenarios:
+ * Dispatches to command completion when the user is typing the first token,
+ * or to file/directory completion when typing a subsequent argument.
+ * 
+ * @param line The current input line to complete.
+ * @returns A tuple containing an array of completions and the substring to replace.
+ */
+function handleCompletion(line: string): [string[], string] {
+  const lastSpaceIndex = line.lastIndexOf(' ');
+
+  if (lastSpaceIndex === -1) {
+    // Completing a command name
+    return handleCommandCompletion(line);
+  }
+
+  // Completing an argument (file/directory)
+  return handleFileCompletion(line, lastSpaceIndex);
+}
+
+/**
+ * Handles tab completion for command names (builtins and PATH executables).
+ * 
  * - No matches: Rings the bell.
  * - Single match: Returns the match with a trailing space.
  * - Multiple matches:
- *   - If there is a common prefix longer than the current line, returns it.
- *   - If it's the first tab press, rings the bell.
- *   - If it's the second tab press (consecutive), displays all possible completions.
+ *   - If there is a common prefix longer than the current input, completes to it.
+ *   - First tab press: Rings the bell.
+ *   - Second tab press: Displays all possible completions.
  * 
- * @param line The current input line to complete.
+ * @param line The current input line (command prefix) to complete.
  * @returns A tuple containing an array of completions and the original line.
  */
-function handleCompletion(line: string): [string[], string] {
+function handleCommandCompletion(line: string): [string[], string] {
   const completions = new Set<string>();
 
   // Add matching builtins
@@ -166,4 +186,86 @@ function handleCompletion(line: string): [string[], string] {
   }
 
   return [[], line];
+}
+
+/**
+ * Handles tab completion for file and directory arguments.
+ * 
+ * Extracts the token after the last space and matches it against entries
+ * in the current (or nested) directory. Supports:
+ * - Nested paths: splits on the last `/` to resolve the search directory.
+ * - Single match: Completes with a trailing space (file) or `/` (directory).
+ * - No matches: Rings the bell, leaves input unchanged.
+ * - Multiple matches: Completes to the longest common prefix, or lists
+ *   all matches on a subsequent tab press.
+ * 
+ * @param line The full input line.
+ * @param lastSpaceIndex Index of the last space in the line, used to extract the token.
+ * @returns A tuple containing an array of completions and the token being replaced.
+ */
+function handleFileCompletion(line: string, lastSpaceIndex: number): [string[], string] {
+  const token = line.substring(lastSpaceIndex + 1);
+
+  let dirPath = "";
+  let prefix = token;
+
+  const lastSlashIndex = token.lastIndexOf('/');
+  if (lastSlashIndex !== -1) {
+    dirPath = token.substring(0, lastSlashIndex + 1);
+    prefix = token.substring(lastSlashIndex + 1);
+  }
+
+  // Resolve the search directory
+  const searchDir = dirPath ? path.resolve(process.cwd(), dirPath) : process.cwd();
+
+  // Find matching entries
+  const matches: { name: string; isDir: boolean }[] = [];
+  try {
+    const entries = fs.readdirSync(searchDir);
+    for (const entry of entries) {
+      if (entry.startsWith(prefix)) {
+        const fullPath = path.join(searchDir, entry);
+        try {
+          const isDir = fs.statSync(fullPath).isDirectory();
+          matches.push({ name: entry, isDir });
+        } catch (e) { }
+      }
+    }
+  } catch (e) { }
+
+  matches.sort((a, b) => a.name.localeCompare(b.name));
+
+  // No matches
+  if (matches.length === 0) {
+    process.stdout.write('\x07');
+    return [[], line];
+  }
+
+  // Single match
+  if (matches.length === 1) {
+    const match = matches[0];
+    const completion = dirPath + match.name + (match.isDir ? '/' : ' ');
+    return [[completion], token];
+  }
+
+  // Multiple matches - find LCP
+  const names = matches.map(m => m.name);
+  const lcp = longestCommonPrefix(names);
+
+  if (lcp.length > prefix.length) {
+    const completion = dirPath + lcp;
+    return [[completion], token];
+  }
+
+  // Handle multiple completions with tab counting
+  if (tabCounter === 0) {
+    tabCounter++;
+    process.stdout.write('\x07');
+    return [[], line];
+  } else {
+    tabCounter = 0;
+    const displayEntries = matches.map(m => m.name + (m.isDir ? '/' : ''));
+    process.stdout.write(`\n${displayEntries.join("  ")}\n${PROMPT_PREFIX}${line}`);
+    return [[], line];
+  }
 }
