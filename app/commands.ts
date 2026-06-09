@@ -27,6 +27,11 @@ export interface Command {
 export const commandsRegistry = new Map<string, Command>();
 
 /**
+ * Registry mapping a command name to the path of its registered completer script.
+ */
+export const completionsRegistry = new Map<string, string>();
+
+/**
  * Command to print arguments to the standard output.
  */
 export class EchoCommand implements Command {
@@ -166,6 +171,48 @@ export class TypeCommand implements Command {
                 fs.writeSync(stdout, `${cmd} is ${path}\n`);
             } else {
                 fs.writeSync(stdout, `${cmd}: not found\n`);
+            }
+        }
+    }
+}
+
+/**
+ * Command to manage programmable completion specifications.
+ *
+ * Supported flags:
+ * - `-C <path> <command>`: Registers a completer script for a command.
+ * - `-p <command>`: Prints the completion specification for a command, or an
+ *   error if none is registered.
+ * - `-r <command>`: Removes the completion specification for a command.
+ */
+export class CompleteCommand implements Command {
+    command = "complete";
+
+    execute(args: string[], stdout: number, stderr: number): void {
+        const flag = args[0];
+
+        switch (flag) {
+            case "-C": {
+                const completerPath = args[1];
+                const cmd = args[2];
+                if (cmd) {
+                    completionsRegistry.set(cmd, completerPath);
+                }
+                break;
+            }
+            case "-p": {
+                const cmd = args[1];
+                if (completionsRegistry.has(cmd)) {
+                    fs.writeSync(stdout, `complete -C '${completionsRegistry.get(cmd)}' ${cmd}\n`);
+                } else {
+                    fs.writeSync(stdout, `complete: ${cmd}: no completion specification\n`);
+                }
+                break;
+            }
+            case "-r": {
+                const cmd = args[1];
+                completionsRegistry.delete(cmd);
+                break;
             }
         }
     }

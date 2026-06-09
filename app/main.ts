@@ -3,7 +3,7 @@ import { spawnSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 
-import { commandsRegistry, EchoCommand, PwdCommand, CdCommand, HistoryCommand, ExitCommand, TypeCommand } from "./commands";
+import { commandsRegistry, completionsRegistry, EchoCommand, PwdCommand, CdCommand, HistoryCommand, ExitCommand, TypeCommand, CompleteCommand } from "./commands";
 import { parseInput, parseRedirections, findExecutable, getMatchingExecutables, longestCommonPrefix } from "./utils";
 
 // Shell prompt prefix
@@ -42,6 +42,7 @@ const commandsToRegister = [
   new HistoryCommand(history),
   new ExitCommand(rl),
   new TypeCommand(),
+  new CompleteCommand(),
 ];
 commandsToRegister.forEach((command) => commandsRegistry.set(command.command, command));
 
@@ -120,8 +121,90 @@ function handleCompletion(line: string): [string[], string] {
     return handleCommandCompletion(line);
   }
 
+  // If a programmable completer is registered for the command, use it
+  const commandName = line.split(/\s+/)[0];
+  if (completionsRegistry.has(commandName)) {
+    return handleCompleterCompletion(line, completionsRegistry.get(commandName)!);
+  }
+
   // Completing an argument (file/directory)
   return handleFileCompletion(line, lastSpaceIndex);
+}
+
+/**
+ * Handles tab completion using a registered completer script (`complete -C`).
+ *
+ * Invokes the completer as a separate process, passing the command name, the
+ * word being completed, and the preceding word as `argv[1..3]`, along with the
+ * `COMP_LINE` and `COMP_POINT` environment variables. Each line of stdout is
+ * treated as a candidate.
+ *
+ * - No candidates: Rings the bell, leaves input unchanged.
+ * - Single candidate: Completes with a trailing space.
+ * - Multiple candidates:
+ *   - Completes to the longest common prefix if it extends the current word.
+ *   - Otherwise rings the bell on the first tab and lists candidates on the next.
+ *
+ * @param line The full input line.
+ * @param completerPath Path to the registered completer script.
+ * @returns A tuple containing an array of completions and the substring to replace.
+ */
+function handleCompleterCompletion(line: string, completerPath: string): [string[], string] {
+  const words = line.split(/\s+/).filter((w) => w.length > 0);
+  const command = words[0];
+
+  const endsWithSpace = /\s$/.test(line);
+
+  let currentWord: string;
+  let previousWord: string;
+  if (endsWithSpace) {
+    currentWord = "";
+    previousWord = words.length > 0 ? words[words.length - 1] : "";
+  } else {
+    currentWord = words.length > 0 ? words[words.length - 1] : "";
+    previousWord = words.length > 1 ? words[words.length - 2] : "";
+  }
+
+  // Run the completer script, passing context via argv and environment variables
+  const result = spawnSync(completerPath, [command, currentWord, previousWord], {
+    encoding: "utf-8",
+    env: { ...process.env, COMP_LINE: line, COMP_POINT: String(line.length) },
+  });
+
+  const output = result.stdout || "";
+  const candidates = output
+    .split("\n")
+    .map((l) => l.replace(/\r$/, ""))
+    .filter((l) => l.length > 0)
+    .sort();
+
+  // No candidates - ring the bell
+  if (candidates.length === 0) {
+    process.stdout.write('\x07');
+    return [[], line];
+  }
+
+  // Single candidate - complete with a trailing space
+  if (candidates.length === 1) {
+    return [[candidates[0] + " "], currentWord];
+  }
+
+  // Multiple candidates - complete to the longest common prefix if it extends the word
+  const lcp = longestCommonPrefix(candidates);
+  if (lcp.length > currentWord.length) {
+    return [[lcp], currentWord];
+  }
+
+  // Handle multiple completions with tab counting
+  if (tabCounter === 0) {
+    tabCounter++;
+    process.stdout.write('\x07');
+    return [[], line];
+  } else {
+    tabCounter = 0;
+    process.stdout.write(`\n${candidates.join("  ")}\n${PROMPT_PREFIX}${line}`);
+    return [[], line];
+  }
 }
 
 /**
