@@ -1,10 +1,11 @@
 import { createInterface } from "readline";
-import { spawnSync } from "child_process";
+import { spawnSync, spawn } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 
-import { commandsRegistry, completionsRegistry, EchoCommand, PwdCommand, CdCommand, HistoryCommand, ExitCommand, TypeCommand, CompleteCommand } from "./commands";
+import { commandsRegistry, completionsRegistry, EchoCommand, PwdCommand, CdCommand, HistoryCommand, ExitCommand, TypeCommand, CompleteCommand, JobsCommand } from "./commands";
 import { parseInput, parseRedirections, findExecutable, getMatchingExecutables, longestCommonPrefix } from "./utils";
+import { JobManager } from "./jobs";
 
 // Shell prompt prefix
 const PROMPT_PREFIX = "$ ";
@@ -18,6 +19,9 @@ const rl = createInterface({
 
 // Store command history
 const history: string[] = [];
+
+// Manage background jobs
+const jobManager = new JobManager();
 
 // Track number of commands loaded from history file
 let historyLoadedCount = 0;
@@ -43,6 +47,7 @@ const commandsToRegister = [
   new ExitCommand(rl),
   new TypeCommand(),
   new CompleteCommand(),
+  new JobsCommand(jobManager),
 ];
 commandsToRegister.forEach((command) => commandsRegistry.set(command.command, command));
 
@@ -59,6 +64,37 @@ rl.on("line", (line) => {
   }
 
   const inputArgs = parseInput(line);
+
+  // Check for background execution (last token is `&`)
+  if (inputArgs.length > 0 && inputArgs[inputArgs.length - 1] === "&") {
+    const bgArgs = inputArgs.slice(0, -1);
+
+    if (bgArgs.length > 0) {
+      const commandName = bgArgs[0];
+      const commandArgs = bgArgs.slice(1);
+      const executablePath = findExecutable(commandName);
+
+      if (executablePath) {
+        // Spawn the process without waiting; inherit stdout/stderr so its output
+        // still appears in the terminal.
+        const child = spawn(executablePath, commandArgs, {
+          argv0: commandName,
+          stdio: ["ignore", "inherit", "inherit"],
+        });
+
+        // Command string for display: the input line without the trailing `&`.
+        const commandString = line.trim().replace(/\s*&$/, "");
+        const job = jobManager.add(child, commandString);
+        console.log(`[${job.number}] ${job.pid}`);
+      } else {
+        console.log(`${commandName}: command not found`);
+      }
+    }
+
+    showPrompt();
+    return;
+  }
+
   const { args, stdout, stderr, stdoutFile, stderrFile, redirectionError } = parseRedirections(inputArgs);
 
   if (!redirectionError) {
@@ -82,8 +118,17 @@ rl.on("line", (line) => {
   if (stdoutFile) fs.closeSync(stdoutFile);
   if (stderrFile) fs.closeSync(stderrFile);
 
-  rl.prompt();
+  showPrompt();
 });
+
+/**
+ * Reaps any completed background jobs (printing their `Done` lines) and then
+ * displays the shell prompt.
+ */
+function showPrompt(): void {
+  jobManager.reap(process.stdout.fd);
+  rl.prompt();
+}
 
 // Handle shell exit
 rl.on("close", () => {

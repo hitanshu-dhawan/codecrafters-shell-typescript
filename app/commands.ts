@@ -2,6 +2,7 @@ import * as fs from "fs";
 import { Interface } from "readline";
 
 import { findExecutable } from "./utils";
+import { JobManager } from "./jobs";
 
 /**
  * Interface representing a shell command.
@@ -215,5 +216,21 @@ export class CompleteCommand implements Command {
                 break;
             }
         }
+    }
+}
+
+/**
+ * Command to list background jobs.
+ *
+ * Reaps completed jobs (displaying them once as `Done`) and lists running jobs
+ * with their job numbers, markers, and status.
+ */
+export class JobsCommand implements Command {
+    command = "jobs";
+
+    constructor(private jobManager: JobManager) { }
+
+    execute(args: string[], stdout: number, stderr: number): void {
+        this.jobManager.list(stdout);
     }
 }
