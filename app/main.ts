@@ -3,7 +3,7 @@ import { spawnSync, spawn } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 
-import { commandsRegistry, completionsRegistry, EchoCommand, PwdCommand, CdCommand, HistoryCommand, ExitCommand, TypeCommand, CompleteCommand, JobsCommand } from "./commands";
+import { commandsRegistry, completionsRegistry, EchoCommand, PwdCommand, CdCommand, HistoryCommand, ExitCommand, TypeCommand, CompleteCommand, JobsCommand, DeclareCommand } from "./commands";
 import { parseInput, parseRedirections, findExecutable, getMatchingExecutables, longestCommonPrefix } from "./utils";
 import { JobManager } from "./jobs";
 
@@ -22,6 +22,9 @@ const history: string[] = [];
 
 // Manage background jobs
 const jobManager = new JobManager();
+
+// Store shell variables
+const shellVariables = new Map<string, string>();
 
 // Track number of commands loaded from history file
 let historyLoadedCount = 0;
@@ -48,6 +51,7 @@ const commandsToRegister = [
   new TypeCommand(),
   new CompleteCommand(),
   new JobsCommand(jobManager),
+  new DeclareCommand(shellVariables),
 ];
 commandsToRegister.forEach((command) => commandsRegistry.set(command.command, command));
 
@@ -63,7 +67,7 @@ rl.on("line", (line) => {
     history.push(line.trim());
   }
 
-  const inputArgs = parseInput(line);
+  const inputArgs = parseInput(line, shellVariables);
 
   // Check for background execution (last token is `&`)
   if (inputArgs.length > 0 && inputArgs[inputArgs.length - 1] === "&") {

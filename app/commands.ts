@@ -234,3 +234,46 @@ export class JobsCommand implements Command {
         this.jobManager.list(stdout);
     }
 }
+
+/**
+ * Command to create and inspect shell variables.
+ *
+ * Supported forms:
+ * - `declare NAME=VALUE`: Stores a shell variable (after validating the name).
+ * - `declare -p NAME`: Prints `declare -- NAME="VALUE"`, or an error if unset.
+ */
+export class DeclareCommand implements Command {
+    command = "declare";
+
+    constructor(private variables: Map<string, string>) { }
+
+    execute(args: string[], stdout: number, stderr: number): void {
+        if (args[0] === "-p") {
+            const name = args[1];
+            if (this.variables.has(name)) {
+                fs.writeSync(stdout, `declare -- ${name}="${this.variables.get(name)}"\n`);
+            } else {
+                fs.writeSync(stdout, `declare: ${name}: not found\n`);
+            }
+            return;
+        }
+
+        const assignment = args[0];
+        if (!assignment) {
+            return;
+        }
+
+        const eqIndex = assignment.indexOf("=");
+        const name = eqIndex === -1 ? assignment : assignment.substring(0, eqIndex);
+        const value = eqIndex === -1 ? "" : assignment.substring(eqIndex + 1);
+
+        // A valid identifier starts with a letter or underscore, followed by
+        // letters, digits, or underscores.
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+            fs.writeSync(stdout, `declare: \`${assignment}': not a valid identifier\n`);
+            return;
+        }
+
+        this.variables.set(name, value);
+    }
+}

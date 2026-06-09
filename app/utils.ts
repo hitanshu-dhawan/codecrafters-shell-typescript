@@ -79,11 +79,17 @@ export function getMatchingExecutables(prefix: string): string[] {
  * Backslash (\) outside quotes:
  * - Escapes the next character.
  * - Example: world\ \ \ \ \ \ script -> world      script
- * 
+ *
+ * Parameter expansion (when `variables` is provided):
+ * - `$NAME` and `${NAME}` are replaced with the variable's value.
+ * - Expansion happens outside single quotes (literal there) and inside double quotes.
+ * - Unset variables expand to an empty string.
+ *
  * @param input - The input string to parse.
+ * @param variables - Optional map of shell variables used for expansion.
  * @returns An array of tokens.
  */
-export function parseInput(input: string): string[] {
+export function parseInput(input: string, variables?: Map<string, string>): string[] {
     const tokens: string[] = [];
 
     let currentToken = "";
@@ -104,6 +110,10 @@ export function parseInput(input: string): string[] {
             // Handle double quotes: preserve whitespace, handle specific escapes
             if (char === '"') {
                 inDoubleQuote = false;
+            } else if (char === '$' && variables) {
+                const { value, nextIndex } = expandVariable(input, i, variables);
+                currentToken += value;
+                i = nextIndex - 1;
             } else if (char === '\\') {
                 const nextChar = input[i + 1];
                 // Only escape " and \ inside double quotes
@@ -125,6 +135,10 @@ export function parseInput(input: string): string[] {
                     currentToken += nextChar;
                     i++;
                 }
+            } else if (char === '$' && variables) {
+                const { value, nextIndex } = expandVariable(input, i, variables);
+                currentToken += value;
+                i = nextIndex - 1;
             } else if (char === "'") {
                 inSingleQuote = true;
             } else if (char === '"') {
@@ -147,6 +161,46 @@ export function parseInput(input: string): string[] {
     }
 
     return tokens;
+}
+
+/**
+ * Expands a variable reference (`$NAME` or `${NAME}`) starting at the given index.
+ *
+ * @param input - The full input string.
+ * @param i - The index of the `$` character.
+ * @param variables - The map of shell variables.
+ * @returns The expanded value and the index immediately after the reference.
+ */
+function expandVariable(input: string, i: number, variables: Map<string, string>): { value: string; nextIndex: number } {
+    let j = i + 1;
+
+    // Braced form: ${NAME}
+    if (input[j] === '{') {
+        j++;
+        let name = "";
+        while (j < input.length && input[j] !== '}') {
+            name += input[j];
+            j++;
+        }
+        if (j < input.length && input[j] === '}') {
+            j++;
+        }
+        return { value: variables.get(name) ?? "", nextIndex: j };
+    }
+
+    // Plain form: $NAME (identifier starts with a letter or underscore)
+    if (j < input.length && /[A-Za-z_]/.test(input[j])) {
+        let name = input[j];
+        j++;
+        while (j < input.length && /[A-Za-z0-9_]/.test(input[j])) {
+            name += input[j];
+            j++;
+        }
+        return { value: variables.get(name) ?? "", nextIndex: j };
+    }
+
+    // Not a valid expansion: treat `$` as a literal character.
+    return { value: "$", nextIndex: i + 1 };
 }
 
 /**
